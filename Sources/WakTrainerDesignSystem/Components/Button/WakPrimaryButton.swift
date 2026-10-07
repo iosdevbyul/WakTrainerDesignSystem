@@ -3,37 +3,45 @@ import SwiftUI
 public struct WakPrimaryButton: View {
     private let title: LocalizedStringKey
     private let isEnabled: Bool
-    private let action: () -> Void
+    private let tapPolicy: WakButtonTapPolicy
+    private let showsProgress: Bool
+    private let action: WakButton.Action
 
     public init(
         _ title: LocalizedStringKey,
         isEnabled: Bool = true,
+        tapPolicy: WakButtonTapPolicy = .standard,
         action: @escaping () -> Void
     ) {
         self.title = title
         self.isEnabled = isEnabled
-        self.action = action
+        self.tapPolicy = tapPolicy
+        self.showsProgress = false
+        self.action = .synchronous(action)
+    }
+
+    public init(
+        _ title: LocalizedStringKey,
+        isEnabled: Bool = true,
+        tapPolicy: WakButtonTapPolicy = .standard,
+        showsProgress: Bool = true,
+        asyncAction: @escaping @MainActor () async -> Void
+    ) {
+        self.title = title
+        self.isEnabled = isEnabled
+        self.tapPolicy = tapPolicy
+        self.showsProgress = showsProgress
+        self.action = .asynchronous(asyncAction)
     }
 
     public var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(WakTypography.button)
-                .foregroundStyle(Color.black)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 54)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .background(isEnabled ? WakColor.primary : WakColor.surfaceSecondary)
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: WakRadius.medium,
-                style: .continuous
-            )
+        WakButton(
+            title: title,
+            appearance: .primary,
+            isEnabled: isEnabled,
+            tapPolicy: tapPolicy,
+            showsProgress: showsProgress,
+            action: action
         )
-        .disabled(!isEnabled)
-        .opacity(isEnabled ? 1 : 0.6)
-        .accessibilityAddTraits(.isButton)
     }
 }

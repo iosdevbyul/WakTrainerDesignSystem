@@ -2,33 +2,46 @@ import SwiftUI
 
 public struct WakSecondaryButton: View {
     private let title: LocalizedStringKey
-    private let action: () -> Void
+    private let isEnabled: Bool
+    private let tapPolicy: WakButtonTapPolicy
+    private let showsProgress: Bool
+    private let action: WakButton.Action
 
     public init(
         _ title: LocalizedStringKey,
+        isEnabled: Bool = true,
+        tapPolicy: WakButtonTapPolicy = .standard,
         action: @escaping () -> Void
     ) {
         self.title = title
-        self.action = action
+        self.isEnabled = isEnabled
+        self.tapPolicy = tapPolicy
+        self.showsProgress = false
+        self.action = .synchronous(action)
+    }
+
+    public init(
+        _ title: LocalizedStringKey,
+        isEnabled: Bool = true,
+        tapPolicy: WakButtonTapPolicy = .standard,
+        showsProgress: Bool = true,
+        asyncAction: @escaping @MainActor () async -> Void
+    ) {
+        self.title = title
+        self.isEnabled = isEnabled
+        self.tapPolicy = tapPolicy
+        self.showsProgress = showsProgress
+        self.action = .asynchronous(asyncAction)
     }
 
     public var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(WakTypography.button)
-                .foregroundStyle(WakColor.textPrimary)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 54)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .background(WakColor.surfaceSecondary)
-        .clipShape(
-            RoundedRectangle(
-                cornerRadius: WakRadius.medium,
-                style: .continuous
-            )
+        WakButton(
+            title: title,
+            appearance: .secondary,
+            isEnabled: isEnabled,
+            tapPolicy: tapPolicy,
+            showsProgress: showsProgress,
+            action: action
         )
-        .accessibilityAddTraits(.isButton)
     }
 }

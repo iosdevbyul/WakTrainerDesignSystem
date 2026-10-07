@@ -80,6 +80,53 @@ WakPrimaryButton("Start Workout") {
 }
 ```
 
+## Button Interaction
+
+WakTrainer buttons share interaction behavior so feature code does not need to reimplement duplicate-tap protection or async loading state.
+
+By default, primary and secondary buttons block rapid repeat taps for 0.5 seconds:
+
+```swift
+WakPrimaryButton("Start Workout") {
+    startWorkout()
+}
+```
+
+Use `.immediate` only when repeat taps are intentionally allowed:
+
+```swift
+WakSecondaryButton(
+    "Add Set",
+    tapPolicy: .immediate
+) {
+    addSet()
+}
+```
+
+A custom rapid-tap interval can also be supplied:
+
+```swift
+WakPrimaryButton(
+    "Continue",
+    tapPolicy: .preventRapidTap(interval: 0.8)
+) {
+    continueFlow()
+}
+```
+
+For async work, use the `asyncAction` initializer. The button disables itself until the async action finishes and shows a progress indicator by default:
+
+```swift
+WakPrimaryButton(
+    "Finish Workout",
+    asyncAction: {
+        await viewModel.finishWorkout()
+    }
+)
+```
+
+The design system only owns interaction state. Workout completion, networking, persistence, HealthKit updates, and error handling remain the responsibility of the feature or domain layer.
+
 ## Localization
 
 WakTrainer uses English as its source language. Business-facing strings should live in the app or feature package that owns them.
@@ -120,20 +167,20 @@ The design system must not depend on WakTrainer feature, domain, service, or net
 
 ## Development
 
-Run tests with Xcode using an available iOS Simulator. The current CI image provides iPhone 17:
+Run tests with Xcode using any iPhone Simulator installed on your machine:
 
 ```bash
 xcodebuild \
   -scheme WakTrainerDesignSystem \
-  -destination 'platform=iOS Simulator,OS=latest,name=iPhone 17' \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
   -configuration Debug \
   CODE_SIGNING_ALLOWED=NO \
   test
 ```
 
-If your local Xcode has a different simulator model installed, replace only the destination device name.
+Replace the device name when your local Xcode uses a different simulator model.
 
-GitHub Actions runs the same build and test flow for pull requests targeting `main`.
+GitHub Actions pins the macOS runner and discovers an available iPhone Simulator dynamically before running the same package build and XCTest flow. This avoids tying CI to one simulator model name.
 
 ## Evolution
 

@@ -8,9 +8,9 @@ struct WakButton: View {
         var foregroundColor: Color {
             switch self {
             case .primary:
-                Color.black
+                return Color.black
             case .secondary:
-                WakColor.textPrimary
+                return WakColor.textPrimary
             }
         }
 
@@ -21,9 +21,9 @@ struct WakButton: View {
 
             switch self {
             case .primary:
-                WakColor.primary
+                return WakColor.primary
             case .secondary:
-                WakColor.surfaceSecondary
+                return WakColor.surfaceSecondary
             }
         }
     }

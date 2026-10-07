@@ -167,20 +167,20 @@ The design system must not depend on WakTrainer feature, domain, service, or net
 
 ## Development
 
-Run tests with Xcode using an available iOS Simulator. The current CI image provides iPhone 17:
+Run tests with Xcode using any iPhone Simulator installed on your machine:
 
 ```bash
 xcodebuild \
   -scheme WakTrainerDesignSystem \
-  -destination 'platform=iOS Simulator,OS=latest,name=iPhone 17' \
+  -destination 'platform=iOS Simulator,name=iPhone 16' \
   -configuration Debug \
   CODE_SIGNING_ALLOWED=NO \
   test
 ```
 
-If your local Xcode has a different simulator model installed, replace only the destination device name.
+Replace the device name when your local Xcode uses a different simulator model.
 
-GitHub Actions runs the same build and test flow for pull requests targeting `main`.
+GitHub Actions pins the macOS runner and discovers an available iPhone Simulator dynamically before running the same package build and XCTest flow. This avoids tying CI to one simulator model name.
 
 ## Evolution
 

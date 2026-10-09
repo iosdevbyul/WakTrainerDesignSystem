@@ -17,7 +17,8 @@ public struct OrbitMenuItem: Identifiable, Hashable {
 /// 0° points right, 90° points up, and 180° points left.
 public struct OrbitMenuConfiguration {
     public var startAngle: Angle
-    /// The direction and available arc for equally distributed satellites.\n    /// Equal spacing is automatic; callers do not need to configure a per-item angle.
+    /// The direction and available arc for equally distributed satellites.
+    /// Equal spacing is automatic; callers do not need to configure a per-item angle.
     /// Defaults to the upper semicircle, from 180° clockwise to 0°.
     public var sweepAngle: Angle
     public var overflowBehavior: OrbitMenuOverflowBehavior
@@ -74,8 +75,10 @@ public enum OrbitMenuLayout {
     ) -> [Angle] {
         guard count > 0 else { return [] }
         guard count > 1 else { return [startAngle] }
+        let closed = abs(sweepAngle.radians) >= 2 * .pi - 0.000001
+        let segments = closed ? count : count - 1
         return (0..<count).map {
-            .radians(startAngle.radians + sweepAngle.radians * Double($0) / Double(count - 1))
+            .radians(startAngle.radians + sweepAngle.radians * Double($0) / Double(segments))
         }
     }
 
@@ -118,6 +121,9 @@ public struct OrbitMenu: View {
     public let root: OrbitMenuItem
     public var configuration: OrbitMenuConfiguration
     public var onSelect: (OrbitMenuItem) -> Void
+    private var nodeStyle: (OrbitMenuItem, Bool) -> OrbitMenuNodeStyle
+    private var nodeContent: ((OrbitMenuItem, Bool) -> AnyView)?
+    private var menuBackground: () -> AnyView
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var path: [OrbitMenuItem] = []
@@ -141,6 +147,43 @@ public struct OrbitMenu: View {
         self.root = root
         self.configuration = configuration
         self.onSelect = onSelect
+        self.nodeStyle = { _, _ in .init() }
+        self.nodeContent = nil
+        self.menuBackground = { AnyView(Color.clear) }
+    }
+
+    /// Customize the center and satellite nodes without replacing navigation behavior.
+    /// Return any SwiftUI view, including Image, Label, or composed content.
+    public init<Content: View, Background: View>(
+        root: OrbitMenuItem,
+        configuration: OrbitMenuConfiguration = .init(),
+        nodeStyle: @escaping (OrbitMenuItem, Bool) -> OrbitMenuNodeStyle = { _, _ in .init() },
+        @ViewBuilder nodeContent: @escaping (OrbitMenuItem, Bool) -> Content,
+        @ViewBuilder background: @escaping () -> Background,
+        onSelect: @escaping (OrbitMenuItem) -> Void
+    ) {
+        self.root = root
+        self.configuration = configuration
+        self.onSelect = onSelect
+        self.nodeStyle = nodeStyle
+        self.nodeContent = { item, isCenter in AnyView(nodeContent(item, isCenter)) }
+        self.menuBackground = { AnyView(background()) }
+    }
+
+    /// Customize colors, fonts and shapes while keeping the built-in text renderer.
+    public init<Background: View>(
+        root: OrbitMenuItem,
+        configuration: OrbitMenuConfiguration = .init(),
+        nodeStyle: @escaping (OrbitMenuItem, Bool) -> OrbitMenuNodeStyle,
+        @ViewBuilder background: @escaping () -> Background,
+        onSelect: @escaping (OrbitMenuItem) -> Void
+    ) {
+        self.root = root
+        self.configuration = configuration
+        self.onSelect = onSelect
+        self.nodeStyle = nodeStyle
+        self.nodeContent = nil
+        self.menuBackground = { AnyView(background()) }
     }
 
     private var current: OrbitMenuItem { path.last ?? root }
@@ -148,14 +191,18 @@ public struct OrbitMenu: View {
 
     public var body: some View {
         GeometryReader { geometry in
+            let largestSatellite = max(
+                configuration.satelliteDiameter,
+                current.children.map { nodeStyle($0, false).diameter ?? configuration.satelliteDiameter }.max() ?? 0
+            )
             let maximumRadius = max(0, min(
-                (geometry.size.width - configuration.satelliteDiameter - 12) / 2,
-                (geometry.size.height - configuration.satelliteDiameter - 12) / 2
+                (geometry.size.width - largestSatellite - 12) / 2,
+                (geometry.size.height - largestSatellite - 12) / 2
             ))
             let radius = min(configuration.orbitRadius, maximumRadius)
             let capacity = OrbitMenuOverflowLayout.pageCapacity(
                 radius: radius,
-                satelliteDiameter: configuration.satelliteDiameter,
+                satelliteDiameter: largestSatellite,
                 sweepAngle: configuration.sweepAngle,
                 spacing: configuration.satelliteSpacing
             )
@@ -165,7 +212,7 @@ public struct OrbitMenu: View {
                     radius,
                     configuration.centerDiameter / 2 + configuration.satelliteDiameter / 2 + configuration.satelliteSpacing
                 ),
-                satelliteDiameter: configuration.satelliteDiameter,
+                satelliteDiameter: largestSatellite,
                 spacing: configuration.satelliteSpacing,
                 startAngle: configuration.startAngle,
                 sweepAngle: configuration.sweepAngle,
@@ -197,11 +244,7 @@ public struct OrbitMenu: View {
                     Button {
                         select(item, at: offset)
                     } label: {
-                        circle(
-                            title: item.title,
-                            diameter: configuration.satelliteDiameter,
-                            color: configuration.satelliteColor
-                        )
+                        node(item, isCenter: false)
                     }
                     .buttonStyle(.plain)
                     .offset(
@@ -218,11 +261,7 @@ public struct OrbitMenu: View {
                 Button {
                     goBack(radius: radius, maxRadius: maximumRadius)
                 } label: {
-                    circle(
-                        title: current.title,
-                        diameter: configuration.centerDiameter,
-                        color: configuration.centerColor
-                    )
+                    node(current, isCenter: true)
                 }
                 .buttonStyle(.plain)
                 .disabled(path.isEmpty || isTransitioning)
@@ -272,6 +311,7 @@ public struct OrbitMenu: View {
                     }
             )
             .sensoryFeedback(.selection, trigger: feedbackTick)
+            .background { menuBackground() }
 
         }
         .frame(height: 2 * (configuration.orbitRadius + configuration.satelliteDiameter / 2 + 6) + 44)
@@ -320,17 +360,36 @@ public struct OrbitMenu: View {
         }
     }
 
-    private func circle(title: String, diameter: CGFloat, color: Color) -> some View {
-        Text(title)
-            .font(.system(size: diameter * 0.17, weight: .semibold))
-            .minimumScaleFactor(0.7)
-            .lineLimit(2)
-            .multilineTextAlignment(.center)
-            .foregroundStyle(configuration.foregroundColor)
-            .padding(6)
-            .frame(width: diameter, height: diameter)
-            .background(color, in: Circle())
-            .contentShape(Circle())
+    @ViewBuilder
+    private func node(_ item: OrbitMenuItem, isCenter: Bool) -> some View {
+        let style = nodeStyle(item, isCenter)
+        let diameter = style.diameter ?? (isCenter ? configuration.centerDiameter : configuration.satelliteDiameter)
+        let fill = style.fill ?? (isCenter ? configuration.centerColor : configuration.satelliteColor)
+        let foreground = style.foreground ?? configuration.foregroundColor
+        let font = style.font ?? .system(size: diameter * 0.17, weight: .semibold)
+
+        Group {
+            if let nodeContent {
+                nodeContent(item, isCenter)
+            } else {
+                Text(item.title)
+                    .font(font)
+                    .foregroundStyle(foreground)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.center)
+                    .padding(6)
+            }
+        }
+        .frame(width: diameter, height: diameter)
+        .background {
+            if let radius = style.cornerRadius {
+                RoundedRectangle(cornerRadius: radius).fill(fill)
+            } else {
+                Circle().fill(fill)
+            }
+        }
+        .contentShape(Rectangle())
     }
 
     private func select(_ item: OrbitMenuItem, at offset: CGSize) {
@@ -367,6 +426,10 @@ public struct OrbitMenu: View {
         let previousPage = pageHistory.popLast() ?? 0
         page = 0
         let siblings = current.children
+        let largestSatellite = max(
+            configuration.satelliteDiameter,
+            siblings.map { nodeStyle($0, false).diameter ?? configuration.satelliteDiameter }.max() ?? 0
+        )
         guard let index = siblings.firstIndex(where: { $0.id == departing.id }) else {
             isTransitioning = false
             return
@@ -377,7 +440,7 @@ public struct OrbitMenu: View {
                 radius,
                 configuration.centerDiameter / 2 + configuration.satelliteDiameter / 2 + configuration.satelliteSpacing
             ),
-            satelliteDiameter: configuration.satelliteDiameter,
+            satelliteDiameter: largestSatellite,
             spacing: configuration.satelliteSpacing,
             startAngle: configuration.startAngle,
             sweepAngle: configuration.sweepAngle,
@@ -386,7 +449,7 @@ public struct OrbitMenu: View {
         let parentCapacity = configuration.overflowBehavior == .pagination
             ? OrbitMenuOverflowLayout.pageCapacity(
                 radius: radius,
-                satelliteDiameter: configuration.satelliteDiameter,
+                satelliteDiameter: largestSatellite,
                 sweepAngle: configuration.sweepAngle,
                 spacing: configuration.satelliteSpacing
             ) : max(1, parentPositions.count)

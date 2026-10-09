@@ -20,7 +20,9 @@ public enum OrbitMenuOverflowLayout {
         let sweep = abs(sweepAngle.radians)
         guard sweep > 0, step > 0 else { return 1 }
         // Cap at 100 to avoid allocating an unbounded number of buttons per page.
-        return max(1, min(100, Int(floor(sweep / step)) + 1))
+        let closed = sweep >= 2 * .pi - 0.000001
+        let count = Int(floor(sweep / step)) + (closed ? 0 : 1)
+        return max(1, min(100, count))
     }
 
     public static func pageCount(itemCount: Int, capacity: Int) -> Int {

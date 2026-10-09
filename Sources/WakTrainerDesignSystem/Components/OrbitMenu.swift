@@ -144,7 +144,7 @@ public struct OrbitMenu: View {
                 }
 
                 Button {
-                    goBack(with: offsets)
+                    goBack(radius: radius)
                 } label: {
                     circle(
                         title: current.title,
@@ -177,10 +177,7 @@ public struct OrbitMenu: View {
 
     private func select(_ item: OrbitMenuItem, at offset: CGSize) {
         guard !isTransitioning else { return }
-        if item.children.isEmpty {
-            onSelect(item)
-            return
-        }
+        let isLeaf = item.children.isEmpty
         isTransitioning = true
         absorbingID = item.id
         absorbingOffset = offset
@@ -192,10 +189,11 @@ public struct OrbitMenu: View {
             path.append(item)
             absorbingID = nil
             isTransitioning = false
+            if isLeaf { onSelect(item) }
         }
     }
 
-    private func goBack(with offsets: [CGSize]) {
+    private func goBack(radius: CGFloat) {
         guard !path.isEmpty, !isTransitioning else { return }
         isTransitioning = true
         let departing = path.removeLast()
@@ -206,7 +204,7 @@ public struct OrbitMenu: View {
         }
         let newOffsets = OrbitMenuLayout.offsets(
             count: siblings.count,
-            radius: min(configuration.orbitRadius, max(0, (offsets.count > 0 ? configuration.orbitRadius : configuration.orbitRadius))),
+            radius: radius,
             startAngle: configuration.startAngle,
             sweepAngle: configuration.sweepAngle
         )

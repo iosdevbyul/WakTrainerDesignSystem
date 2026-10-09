@@ -56,6 +56,37 @@ final class OrbitMenuTests: XCTestCase {
         XCTAssertEqual(offsets[1].height, -100, accuracy: 0.001)
     }
 
+    func testMinimumRadiusPreventsNeighborOverlap() {
+        let radius = OrbitMenuLayout.minimumRadius(
+            count: 5,
+            satelliteDiameter: 66,
+            sweepAngle: .degrees(-180),
+            spacing: 8
+        )
+        let positions = OrbitMenuLayout.offsets(
+            count: 5,
+            radius: radius,
+            startAngle: .degrees(180),
+            sweepAngle: .degrees(-180)
+        )
+        for index in 1..<positions.count {
+            let dx = positions[index].width - positions[index - 1].width
+            let dy = positions[index].height - positions[index - 1].height
+            XCTAssertGreaterThanOrEqual(hypot(dx, dy), 74 - 0.001)
+        }
+    }
+
+    func testMinimumRadiusIsZeroForSingleSatellite() {
+        XCTAssertEqual(
+            OrbitMenuLayout.minimumRadius(
+                count: 1,
+                satelliteDiameter: 66,
+                sweepAngle: .degrees(-180)
+            ),
+            0
+        )
+    }
+
     func testItemSupportsNestedHierarchyWithoutWorkoutTypes() {
         let leaf = OrbitMenuItem(id: "leaf", title: "Option")
         let root = OrbitMenuItem(id: "root", title: "Menu", children: [leaf])

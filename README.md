@@ -143,6 +143,47 @@ WakPrimaryButton("Start Workout") {
 
 Do not add Korean-only or feature-specific copy directly to this package.
 
+## Orbit Menu
+
+`OrbitMenu` provides a reusable hierarchical satellite selector with equal angular
+spacing, animated selection into the center, and reverse navigation by tapping
+the center button. It contains no workout-specific types or navigation dependencies.
+
+```swift
+let menu = OrbitMenuItem(id: "root", title: "Categories", children: [
+    OrbitMenuItem(id: "music", title: "Music", children: [
+        OrbitMenuItem(id: "jazz", title: "Jazz"),
+        OrbitMenuItem(id: "classical", title: "Classical")
+    ]),
+    OrbitMenuItem(id: "books", title: "Books")
+])
+
+OrbitMenu(
+    root: menu,
+    configuration: .init(
+        startAngle: .degrees(180),
+        sweepAngle: .degrees(-180),
+        orbitRadius: 140
+    )
+) { selected in
+    print(selected.id)
+}
+```
+
+The first satellite is placed at `startAngle`, and all remaining satellites
+are **equally distributed across the arc** (including the endpoints).
+The default arc is the upper semicircle, from 180° to 0°.
+Angles use mathematical directions: 0° right, 90° up, 180° left.
+For a single satellite, only the starting angle is used.
+
+The menu invokes `onSelect` after a leaf is absorbed; parent items open
+their children. Tap the center to return to the previous level. Colors, sizes,
+radius and animation duration can be overridden per app. Reduced Motion is
+respected.
+
+Note: Very dense satellite collections or long labels may require a more
+specialized layout. Hosts should give the menu sufficient horizontal space.
+
 ## Dependency Direction
 
 Allowed:

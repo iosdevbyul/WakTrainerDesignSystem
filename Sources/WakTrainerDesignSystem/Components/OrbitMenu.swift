@@ -116,6 +116,7 @@ public struct OrbitMenu: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var path: [OrbitMenuItem] = []
     @State private var page = 0
+    @State private var pageHistory: [Int] = []
     @State private var dialOffset: Double = 0
     @State private var dragTranslation: CGFloat = 0
     @State private var absorbingID: String?
@@ -208,7 +209,7 @@ public struct OrbitMenu: View {
                 }
 
                 Button {
-                    goBack(radius: radius, capacity: pageSize, positions: multiplePositions)
+                    goBack(radius: radius, maxRadius: maximumRadius)
                 } label: {
                     circle(
                         title: current.title,
@@ -334,6 +335,7 @@ public struct OrbitMenu: View {
                 return
             }
             guard !Task.isCancelled else { return }
+            pageHistory.append(page)
             path.append(item)
             page = 0
             absorbingID = nil
@@ -343,32 +345,54 @@ public struct OrbitMenu: View {
         }
     }
 
-    private func goBack(radius: CGFloat, capacity: Int, positions: [CGSize]) {
+    private func goBack(radius: CGFloat, maxRadius: CGFloat) {
         guard !path.isEmpty, !isTransitioning else { return }
         isTransitioning = true
         let departing = path.removeLast()
-        let childPage = page
+        let previousPage = pageHistory.popLast() ?? 0
         page = 0
         let siblings = current.children
         guard let index = siblings.firstIndex(where: { $0.id == departing.id }) else {
             isTransitioning = false
             return
         }
+        let parentPositions = OrbitMenuOverflowLayout.orbitPositions(
+            itemCount: siblings.count,
+            baseRadius: min(
+                radius,
+                configuration.centerDiameter / 2 + configuration.satelliteDiameter / 2 + configuration.satelliteSpacing
+            ),
+            satelliteDiameter: configuration.satelliteDiameter,
+            spacing: configuration.satelliteSpacing,
+            startAngle: configuration.startAngle,
+            sweepAngle: configuration.sweepAngle,
+            maxRadius: maxRadius
+        )
         let parentCapacity = configuration.overflowBehavior == .pagination
-            ? capacity : max(1, positions.count)
-        let parentPage = index / max(1, parentCapacity)
+            ? OrbitMenuOverflowLayout.pageCapacity(
+                radius: radius,
+                satelliteDiameter: configuration.satelliteDiameter,
+                sweepAngle: configuration.sweepAngle,
+                spacing: configuration.satelliteSpacing
+            ) : max(1, parentPositions.count)
+        let parentPage = min(
+            previousPage,
+            max(0, OrbitMenuOverflowLayout.pageCount(
+                itemCount: siblings.count, capacity: parentCapacity
+            ) - 1)
+        )
         page = parentPage
         let range = OrbitMenuOverflowLayout.visibleRange(
             page: parentPage, capacity: parentCapacity, itemCount: siblings.count
         )
-        let newOffsets = OrbitMenuLayout.offsets(
-            count: range.count,
-            radius: radius,
-            startAngle: configuration.startAngle,
-            sweepAngle: configuration.sweepAngle
-        )
+        let newOffsets = configuration.overflowBehavior == .pagination
+            ? OrbitMenuLayout.offsets(
+                count: range.count,
+                radius: radius,
+                startAngle: configuration.startAngle,
+                sweepAngle: configuration.sweepAngle
+            ) : Array(parentPositions.prefix(range.count))
         let destination = newOffsets[index - range.lowerBound]
-        _ = childPage
         returningID = departing.id
         returningOffset = .zero
         transitionTask?.cancel()

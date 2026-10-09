@@ -20,6 +20,8 @@ public struct OrbitMenuConfiguration {
     /// The direction and available arc for equally distributed satellites.\n    /// Equal spacing is automatic; callers do not need to configure a per-item angle.
     /// Defaults to the upper semicircle, from 180° clockwise to 0°.
     public var sweepAngle: Angle
+    public var overflowBehavior: OrbitMenuOverflowBehavior
+    public var satelliteSpacing: CGFloat
     public var orbitRadius: CGFloat
     public var centerDiameter: CGFloat
     public var satelliteDiameter: CGFloat
@@ -31,6 +33,8 @@ public struct OrbitMenuConfiguration {
     public init(
         startAngle: Angle = .degrees(180),
         sweepAngle: Angle = .degrees(-180),
+        overflowBehavior: OrbitMenuOverflowBehavior = .pagination,
+        satelliteSpacing: CGFloat = 8,
         orbitRadius: CGFloat = 140,
         centerDiameter: CGFloat = 112,
         satelliteDiameter: CGFloat = 66,
@@ -41,6 +45,8 @@ public struct OrbitMenuConfiguration {
     ) {
         self.startAngle = startAngle
         self.sweepAngle = sweepAngle
+        self.overflowBehavior = overflowBehavior
+        self.satelliteSpacing = max(0, satelliteSpacing)
         self.orbitRadius = max(0, orbitRadius)
         self.centerDiameter = max(44, centerDiameter)
         self.satelliteDiameter = max(44, satelliteDiameter)
@@ -109,6 +115,9 @@ public struct OrbitMenu: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var path: [OrbitMenuItem] = []
+    @State private var page = 0
+    @State private var dialOffset: Double = 0
+    @State private var dragTranslation: CGFloat = 0
     @State private var absorbingID: String?
     @State private var absorbingOffset: CGSize = .zero
     @State private var returningID: String?
@@ -131,22 +140,52 @@ public struct OrbitMenu: View {
 
     public var body: some View {
         GeometryReader { geometry in
-            let radius = min(
-                configuration.orbitRadius,
-                max(0, (geometry.size.width - configuration.satelliteDiameter - 12) / 2),
-                max(0, (geometry.size.height - configuration.satelliteDiameter - 12) / 2)
-            )
-            let offsets = OrbitMenuLayout.offsets(
-                count: current.children.count,
+            let maximumRadius = max(0, min(
+                (geometry.size.width - configuration.satelliteDiameter - 12) / 2,
+                (geometry.size.height - configuration.satelliteDiameter - 12) / 2
+            ))
+            let radius = min(configuration.orbitRadius, maximumRadius)
+            let capacity = OrbitMenuOverflowLayout.pageCapacity(
                 radius: radius,
-                startAngle: configuration.startAngle,
-                sweepAngle: configuration.sweepAngle
+                satelliteDiameter: configuration.satelliteDiameter,
+                sweepAngle: configuration.sweepAngle,
+                spacing: configuration.satelliteSpacing
             )
+            let multiplePositions = OrbitMenuOverflowLayout.orbitPositions(
+                itemCount: current.children.count,
+                baseRadius: min(
+                    radius,
+                    configuration.centerDiameter / 2 + configuration.satelliteDiameter / 2 + configuration.satelliteSpacing
+                ),
+                satelliteDiameter: configuration.satelliteDiameter,
+                spacing: configuration.satelliteSpacing,
+                startAngle: configuration.startAngle,
+                sweepAngle: configuration.sweepAngle,
+                maxRadius: maximumRadius
+            )
+            let pageSize = configuration.overflowBehavior == .pagination
+                ? capacity : max(1, multiplePositions.count)
+            let totalPages = OrbitMenuOverflowLayout.pageCount(
+                itemCount: current.children.count, capacity: pageSize
+            )
+            let displayedPage = min(page, max(0, totalPages - 1))
+            let visibleRange = OrbitMenuOverflowLayout.visibleRange(
+                page: displayedPage,
+                capacity: pageSize,
+                itemCount: current.children.count
+            )
+            let offsets: [CGSize] = configuration.overflowBehavior == .pagination
+                ? OrbitMenuLayout.offsets(
+                    count: visibleRange.count,
+                    radius: radius,
+                    startAngle: configuration.startAngle,
+                    sweepAngle: configuration.sweepAngle
+                ) : Array(multiplePositions.prefix(visibleRange.count))
 
             ZStack {
-                ForEach(current.children.indices, id: \.self) { index in
+                ForEach(Array(visibleRange), id: \.self) { index in
                     let item = current.children[index]
-                    let offset = offsets[index]
+                    let offset = offsets[index - visibleRange.lowerBound]
                     Button {
                         select(item, at: offset)
                     } label: {
@@ -159,16 +198,17 @@ public struct OrbitMenu: View {
                     .buttonStyle(.plain)
                     .offset(
                         absorbingID == item.id ? absorbingOffset :
-                            returningID == item.id ? returningOffset : offset
+                            returningID == item.id ? returningOffset :
+                            dialOffset == 0 ? offset : rotated(offset, by: dialOffset)
                     )
                     .opacity(isTransitioning && absorbingID != item.id && returningID != item.id ? 0 : 1)
                     .accessibilityLabel(Text(item.title))
                     .accessibilityHint(Text(item.children.isEmpty ? "Select item" : "Show subitems"))
-                    .allowsHitTesting(!isTransitioning)
+                    .disabled(isTransitioning)
                 }
 
                 Button {
-                    goBack(radius: radius)
+                    goBack(radius: radius, capacity: pageSize, positions: multiplePositions)
                 } label: {
                     circle(
                         title: current.title,
@@ -182,14 +222,85 @@ public struct OrbitMenu: View {
                 .zIndex(-1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .overlay(alignment: .bottom) {
+                if totalPages > 1 {
+                    HStack(spacing: 24) {
+                        Button {
+                            turnPage(-1, total: totalPages)
+                        } label: {
+                            Image(systemName: "chevron.left")
+                        }
+                        .disabled(displayedPage == 0 || isTransitioning)
+                        Text("\(displayedPage + 1) / \(totalPages)")
+                            .font(.caption.monospacedDigit())
+                            .accessibilityLabel(Text("Page \(displayedPage + 1) of \(totalPages)"))
+                        Button {
+                            turnPage(1, total: totalPages)
+                        } label: {
+                            Image(systemName: "chevron.right")
+                        }
+                        .disabled(displayedPage == totalPages - 1 || isTransitioning)
+                    }
+                    .buttonStyle(.bordered)
+                    .padding(8)
+                }
+            }
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 20)
+                    .onChanged { value in
+                        dragTranslation = value.translation.width
+                    }
+                    .onEnded { value in
+                        let delta = value.translation.width
+                        dragTranslation = 0
+                        guard abs(delta) >= 35 else { return }
+                        turnPage(delta < 0 ? 1 : -1, total: totalPages)
+                    }
+            )
         }
-        .frame(height: 2 * (configuration.orbitRadius + configuration.satelliteDiameter / 2 + 6))
+        .frame(height: 2 * (configuration.orbitRadius + configuration.satelliteDiameter / 2 + 6) + 44)
         .onDisappear {
             transitionTask?.cancel()
             transitionTask = nil
             absorbingID = nil
             returningID = nil
+            dialOffset = 0
             isTransitioning = false
+        }
+    }
+
+    private func rotated(_ offset: CGSize, by angle: Double) -> CGSize {
+        let cosine = cos(angle)
+        let sine = sin(angle)
+        return CGSize(
+            width: offset.width * cosine - offset.height * sine,
+            height: offset.width * sine + offset.height * cosine
+        )
+    }
+
+    private func turnPage(_ direction: Int, total: Int) {
+        guard !isTransitioning, total > 1 else { return }
+        let target = page + direction
+        guard target >= 0, target < total else { return }
+        isTransitioning = true
+        let half = duration / 2
+        withAnimation(.easeIn(duration: half)) {
+            dialOffset = Double(direction) * .pi / 3
+        }
+        transitionTask?.cancel()
+        transitionTask = Task { @MainActor in
+            do { try await Task.sleep(for: .seconds(half)) } catch { return }
+            guard !Task.isCancelled else { return }
+            page = target
+            dialOffset = -Double(direction) * .pi / 3
+            withAnimation(.easeOut(duration: half)) {
+                dialOffset = 0
+            }
+            do { try await Task.sleep(for: .seconds(half)) } catch { return }
+            guard !Task.isCancelled else { return }
+            isTransitioning = false
+            transitionTask = nil
         }
     }
 
@@ -224,6 +335,7 @@ public struct OrbitMenu: View {
             }
             guard !Task.isCancelled else { return }
             path.append(item)
+            page = 0
             absorbingID = nil
             isTransitioning = false
             transitionTask = nil
@@ -231,21 +343,32 @@ public struct OrbitMenu: View {
         }
     }
 
-    private func goBack(radius: CGFloat) {
+    private func goBack(radius: CGFloat, capacity: Int, positions: [CGSize]) {
         guard !path.isEmpty, !isTransitioning else { return }
         isTransitioning = true
         let departing = path.removeLast()
+        let childPage = page
+        page = 0
         let siblings = current.children
         guard let index = siblings.firstIndex(where: { $0.id == departing.id }) else {
             isTransitioning = false
             return
         }
+        let parentCapacity = configuration.overflowBehavior == .pagination
+            ? capacity : max(1, positions.count)
+        let parentPage = index / max(1, parentCapacity)
+        page = parentPage
+        let range = OrbitMenuOverflowLayout.visibleRange(
+            page: parentPage, capacity: parentCapacity, itemCount: siblings.count
+        )
         let newOffsets = OrbitMenuLayout.offsets(
-            count: siblings.count,
+            count: range.count,
             radius: radius,
             startAngle: configuration.startAngle,
             sweepAngle: configuration.sweepAngle
         )
+        let destination = newOffsets[index - range.lowerBound]
+        _ = childPage
         returningID = departing.id
         returningOffset = .zero
         transitionTask?.cancel()
@@ -253,7 +376,7 @@ public struct OrbitMenu: View {
             await Task.yield()
             guard !Task.isCancelled else { return }
             withAnimation(.easeInOut(duration: duration)) {
-                returningOffset = newOffsets[index]
+                returningOffset = destination
             }
             do {
                 try await Task.sleep(for: .seconds(duration))

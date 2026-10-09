@@ -17,7 +17,8 @@ public struct OrbitMenuItem: Identifiable, Hashable {
 /// 0° points right, 90° points up, and 180° points left.
 public struct OrbitMenuConfiguration {
     public var startAngle: Angle
-    /// The direction and available arc for equally distributed satellites.\n    /// Equal spacing is automatic; callers do not need to configure a per-item angle.
+    /// The direction and available arc for equally distributed satellites.
+    /// Equal spacing is automatic; callers do not need to configure a per-item angle.
     /// Defaults to the upper semicircle, from 180° clockwise to 0°.
     public var sweepAngle: Angle
     public var overflowBehavior: OrbitMenuOverflowBehavior
@@ -423,6 +424,10 @@ public struct OrbitMenu: View {
         let previousPage = pageHistory.popLast() ?? 0
         page = 0
         let siblings = current.children
+        let largestSatellite = max(
+            configuration.satelliteDiameter,
+            siblings.map { nodeStyle($0, false).diameter ?? configuration.satelliteDiameter }.max() ?? 0
+        )
         guard let index = siblings.firstIndex(where: { $0.id == departing.id }) else {
             isTransitioning = false
             return

@@ -183,6 +183,36 @@ respected.
 
 The menu now reserves a full circular viewport to avoid clipping satellites at the\ntop and sides. Satellites are native SwiftUI buttons for keyboard and VoiceOver\nactions. Use `OrbitMenuLayout.minimumRadius(count:satelliteDiameter:sweepAngle:spacing:)`\nto estimate whether an arc has enough room for the requested number of buttons.\n\nNote: The component does not automatically paginate or shrink overlapping\nsatellites. Very dense collections and long labels still require an adapted\nlayout, and hosts must provide adequate space.
 
+### Overflow navigation
+
+`OrbitMenuConfiguration.overflowBehavior` defaults to `.pagination`.
+Use `.multipleOrbits` to place satellites on concentric rings. When the
+available viewport cannot fit every ring, remaining items are paginated.
+
+```swift
+OrbitMenu(
+    root: menu,
+    configuration: .init(
+        startAngle: .degrees(180),
+        sweepAngle: .degrees(-180),
+        overflowBehavior: .pagination,
+        satelliteSpacing: 8
+    )
+) { selected in
+    print(selected.id)
+}
+```
+
+The per-page capacity is calculated from the rendered radius, satellite
+diameter, spacing and available arc. Swipe left/right or use the previous/next
+buttons to switch pages. Satellites rotate through a dial-style transition;
+the main button stays fixed. Returning to a parent restores its previous
+page. The calculation is exposed in `OrbitMenuOverflowLayout` for testing.
+
+With `.multipleOrbits`, rings are added only while they fit the available
+viewport. The component still uses pagination when necessary instead of
+dropping items.
+
 ## Dependency Direction
 
 Allowed:

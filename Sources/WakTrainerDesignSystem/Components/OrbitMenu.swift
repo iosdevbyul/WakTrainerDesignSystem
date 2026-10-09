@@ -22,6 +22,8 @@ public struct OrbitMenuConfiguration {
     public var sweepAngle: Angle
     public var overflowBehavior: OrbitMenuOverflowBehavior
     public var satelliteSpacing: CGFloat
+    public var swipeEnabled: Bool
+    public var hapticsEnabled: Bool
     public var orbitRadius: CGFloat
     public var centerDiameter: CGFloat
     public var satelliteDiameter: CGFloat
@@ -35,6 +37,8 @@ public struct OrbitMenuConfiguration {
         sweepAngle: Angle = .degrees(-180),
         overflowBehavior: OrbitMenuOverflowBehavior = .pagination,
         satelliteSpacing: CGFloat = 8,
+        swipeEnabled: Bool = true,
+        hapticsEnabled: Bool = true,
         orbitRadius: CGFloat = 140,
         centerDiameter: CGFloat = 112,
         satelliteDiameter: CGFloat = 66,
@@ -47,6 +51,8 @@ public struct OrbitMenuConfiguration {
         self.sweepAngle = sweepAngle
         self.overflowBehavior = overflowBehavior
         self.satelliteSpacing = max(0, satelliteSpacing)
+        self.swipeEnabled = swipeEnabled
+        self.hapticsEnabled = hapticsEnabled
         self.orbitRadius = max(0, orbitRadius)
         self.centerDiameter = max(44, centerDiameter)
         self.satelliteDiameter = max(44, satelliteDiameter)
@@ -118,7 +124,8 @@ public struct OrbitMenu: View {
     @State private var page = 0
     @State private var pageHistory: [Int] = []
     @State private var dialOffset: Double = 0
-    @State private var dragTranslation: CGFloat = 0
+    @GestureState private var dragTranslation: CGFloat = 0
+    @State private var feedbackTick = 0
     @State private var absorbingID: String?
     @State private var absorbingOffset: CGSize = .zero
     @State private var returningID: String?
@@ -200,7 +207,7 @@ public struct OrbitMenu: View {
                     .offset(
                         absorbingID == item.id ? absorbingOffset :
                             returningID == item.id ? returningOffset :
-                            dialOffset == 0 ? offset : rotated(offset, by: dialOffset)
+                            rotated(offset, by: dialOffset + (reduceMotion ? 0 : OrbitMenuDialInteraction.rotation(for: dragTranslation)))
                     )
                     .opacity(isTransitioning && absorbingID != item.id && returningID != item.id ? 0 : 1)
                     .accessibilityLabel(Text(item.title))
@@ -249,16 +256,23 @@ public struct OrbitMenu: View {
             .contentShape(Rectangle())
             .simultaneousGesture(
                 DragGesture(minimumDistance: 20)
-                    .onChanged { value in
-                        dragTranslation = value.translation.width
+                    .updating($dragTranslation) { value, state, _ in
+                        if configuration.swipeEnabled && !isTransitioning && totalPages > 1 {
+                            state = value.translation.width
+                        }
                     }
                     .onEnded { value in
-                        let delta = value.translation.width
-                        dragTranslation = 0
-                        guard abs(delta) >= 35 else { return }
-                        turnPage(delta < 0 ? 1 : -1, total: totalPages)
+                        guard configuration.swipeEnabled else { return }
+                        let direction = OrbitMenuDialInteraction.pageDirection(
+                            translation: value.translation.width,
+                            predictedTranslation: value.predictedEndTranslation.width,
+                            threshold: 45
+                        )
+                        if direction != 0 { turnPage(direction, total: totalPages) }
                     }
             )
+            .sensoryFeedback(.selection, trigger: feedbackTick)
+
         }
         .frame(height: 2 * (configuration.orbitRadius + configuration.satelliteDiameter / 2 + 6) + 44)
         .onDisappear {
@@ -294,6 +308,7 @@ public struct OrbitMenu: View {
             do { try await Task.sleep(for: .seconds(half)) } catch { return }
             guard !Task.isCancelled else { return }
             page = target
+            if configuration.hapticsEnabled && !reduceMotion { feedbackTick += 1 }
             dialOffset = -Double(direction) * .pi / 3
             withAnimation(.easeOut(duration: half)) {
                 dialOffset = 0

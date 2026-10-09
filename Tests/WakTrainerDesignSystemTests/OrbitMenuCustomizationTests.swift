@@ -4,9 +4,9 @@ import XCTest
 
 final class OrbitMenuCustomizationTests: XCTestCase {
     func testArcPresets() {
-        XCTAssertEqual(OrbitMenuArc.upperHalf.sweepAngle.degrees, -180)
-        XCTAssertEqual(OrbitMenuArc.upperThird.sweepAngle.degrees, -120)
-        XCTAssertEqual(OrbitMenuArc.fullCircle.sweepAngle.degrees, -360)
+        XCTAssertEqual(OrbitMenuArc.upperHalf.sweepAngle.degrees, -180, accuracy: 0.000001)
+        XCTAssertEqual(OrbitMenuArc.upperThird.sweepAngle.degrees, -120, accuracy: 0.000001)
+        XCTAssertEqual(OrbitMenuArc.fullCircle.sweepAngle.degrees, -360, accuracy: 0.000001)
     }
 
     func testFullCircleDoesNotDuplicateFirstSatellite() {

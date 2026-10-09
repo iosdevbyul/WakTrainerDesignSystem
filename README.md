@@ -181,8 +181,7 @@ their children. Tap the center to return to the previous level. Colors, sizes,
 radius and animation duration can be overridden per app. Reduced Motion is
 respected.
 
-Note: Very dense satellite collections or long labels may require a more
-specialized layout. Hosts should give the menu sufficient horizontal space.
+The menu now reserves a full circular viewport to avoid clipping satellites at the\ntop and sides. Satellites are native SwiftUI buttons for keyboard and VoiceOver\nactions. Use `OrbitMenuLayout.minimumRadius(count:satelliteDiameter:sweepAngle:spacing:)`\nto estimate whether an arc has enough room for the requested number of buttons.\n\nNote: The component does not automatically paginate or shrink overlapping\nsatellites. Very dense collections and long labels still require an adapted\nlayout, and hosts must provide adequate space.
 
 ## Dependency Direction
 

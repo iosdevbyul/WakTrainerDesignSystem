@@ -78,8 +78,10 @@ public enum OrbitMenuLayout {
         guard count > 1 else { return 0 }
         let delta = abs(sweepAngle.radians) / Double(count - 1)
         guard delta > 0 else { return .infinity }
-        let chordFactor = 2 * sin(min(delta, .pi) / 2)
-        guard chordFactor > 0 else { return .infinity }
+        // A full turn can place distinct satellites at the same coordinate.
+        // Calculate the actual shortest chord, not a clamped angle.
+        let chordFactor = 2 * abs(sin(delta / 2))
+        guard chordFactor > 0.000001 else { return .infinity }
         return max(0, satelliteDiameter + spacing) / chordFactor
     }
 
@@ -112,6 +114,7 @@ public struct OrbitMenu: View {
     @State private var returningID: String?
     @State private var returningOffset: CGSize = .zero
     @State private var isTransitioning = false
+    @State private var transitionTask: Task<Void, Never>?
 
     public init(
         root: OrbitMenuItem,
@@ -181,6 +184,13 @@ public struct OrbitMenu: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(height: 2 * (configuration.orbitRadius + configuration.satelliteDiameter / 2 + 6))
+        .onDisappear {
+            transitionTask?.cancel()
+            transitionTask = nil
+            absorbingID = nil
+            returningID = nil
+            isTransitioning = false
+        }
     }
 
     private func circle(title: String, diameter: CGFloat, color: Color) -> some View {
@@ -205,11 +215,18 @@ public struct OrbitMenu: View {
         withAnimation(.easeInOut(duration: duration)) {
             absorbingOffset = .zero
         }
-        Task { @MainActor in
-            try? await Task.sleep(for: .seconds(duration))
+        transitionTask?.cancel()
+        transitionTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .seconds(duration))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
             path.append(item)
             absorbingID = nil
             isTransitioning = false
+            transitionTask = nil
             if isLeaf { onSelect(item) }
         }
     }
@@ -231,14 +248,22 @@ public struct OrbitMenu: View {
         )
         returningID = departing.id
         returningOffset = .zero
-        Task { @MainActor in
+        transitionTask?.cancel()
+        transitionTask = Task { @MainActor in
             await Task.yield()
+            guard !Task.isCancelled else { return }
             withAnimation(.easeInOut(duration: duration)) {
                 returningOffset = newOffsets[index]
             }
-            try? await Task.sleep(for: .seconds(duration))
+            do {
+                try await Task.sleep(for: .seconds(duration))
+            } catch {
+                return
+            }
+            guard !Task.isCancelled else { return }
             returningID = nil
             isTransitioning = false
+            transitionTask = nil
         }
     }
 }

@@ -124,7 +124,8 @@ public struct OrbitMenu: View {
             )
 
             ZStack {
-                ForEach(Array(current.children.enumerated()), id: \.element.id) { index, item in
+                ForEach(current.children.indices, id: \.self) { index in
+                    let item = current.children[index]
                     let offset = offsets[index]
                     circle(
                         title: item.title,

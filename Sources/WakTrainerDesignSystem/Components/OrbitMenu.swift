@@ -75,8 +75,10 @@ public enum OrbitMenuLayout {
     ) -> [Angle] {
         guard count > 0 else { return [] }
         guard count > 1 else { return [startAngle] }
+        let closed = abs(sweepAngle.radians) >= 2 * .pi - 0.000001
+        let segments = closed ? count : count - 1
         return (0..<count).map {
-            .radians(startAngle.radians + sweepAngle.radians * Double($0) / Double(count - 1))
+            .radians(startAngle.radians + sweepAngle.radians * Double($0) / Double(segments))
         }
     }
 

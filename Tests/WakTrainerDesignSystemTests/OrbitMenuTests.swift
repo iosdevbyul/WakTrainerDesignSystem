@@ -87,6 +87,25 @@ final class OrbitMenuTests: XCTestCase {
         )
     }
 
+    func testCoincidentSatellitesRequireUnboundedRadius() {
+        let radius = OrbitMenuLayout.minimumRadius(
+            count: 2,
+            satelliteDiameter: 66,
+            sweepAngle: .degrees(360)
+        )
+        XCTAssertTrue(radius.isInfinite)
+    }
+
+    func testRadiusForWideAnglesUsesActualChord() {
+        let radius = OrbitMenuLayout.minimumRadius(
+            count: 2,
+            satelliteDiameter: 60,
+            sweepAngle: .degrees(270),
+            spacing: 0
+        )
+        XCTAssertEqual(radius, 60 / sqrt(2), accuracy: 0.001)
+    }
+
     func testItemSupportsNestedHierarchyWithoutWorkoutTypes() {
         let leaf = OrbitMenuItem(id: "leaf", title: "Option")
         let root = OrbitMenuItem(id: "root", title: "Menu", children: [leaf])

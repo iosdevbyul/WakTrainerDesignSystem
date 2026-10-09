@@ -205,7 +205,10 @@ OrbitMenu(
 
 The per-page capacity is calculated from the rendered radius, satellite
 diameter, spacing and available arc. Swipe left/right or use the previous/next
-buttons to switch pages. Satellites rotate through a dial-style transition;
+buttons to switch pages. While dragging, satellites rotate with the finger;
+a short drag springs back without paging. Quick flicks may advance a page.
+Set `swipeEnabled: false` to keep only page buttons, or
+`hapticsEnabled: false` to disable page selection feedback. Satellites rotate through a dial-style transition;
 the main button stays fixed. Returning to a parent restores its previous
 page. The calculation is exposed in `OrbitMenuOverflowLayout` for testing.
 

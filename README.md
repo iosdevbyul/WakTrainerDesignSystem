@@ -216,6 +216,54 @@ With `.multipleOrbits`, rings are added only while they fit the available
 viewport. The component still uses pagination when necessary instead of
 dropping items.
 
+### Custom appearance and arbitrary SwiftUI content
+
+Existing `OrbitMenu(root:configuration:onSelect:)` initializers remain valid.
+An appearance closure can override each node's fill, foreground, font,
+diameter and corner radius. A custom content builder can render arbitrary
+SwiftUI content, including SF Symbols, images, gradients, and composite views.
+
+```swift
+OrbitMenu(
+    root: menu,
+    configuration: .init(arc: .upperThird),
+    nodeStyle: { item, isCenter in
+        .init(
+            diameter: isCenter ? 120 : 76,
+            fill: item.id == "music" ? .purple : .blue,
+            font: .headline,
+            cornerRadius: isCenter ? 24 : nil
+        )
+    },
+    nodeContent: { item, _ in
+        VStack(spacing: 4) {
+            Image(systemName: "star.fill")
+            Text(item.title).font(.caption)
+        }
+        .foregroundStyle(.white)
+    },
+    background: {
+        LinearGradient(
+            colors: [.black, .indigo],
+            startPoint: .top, endPoint: .bottom
+        )
+    }
+) { selected in
+    print(selected.id)
+}
+```
+
+Arc presets: `.upperHalf` (180°), `.upperThird` (120°), and
+`.fullCircle` (360°). Custom `startAngle` and `sweepAngle`
+remain available in `OrbitMenuConfiguration`. Full circles do not repeat
+the first satellite at the 360° endpoint.
+
+The custom `nodeContent` closure owns the complete inner SwiftUI view,
+while `nodeStyle` controls its outer background and size. Use
+`fill: .clear` to draw the entire shape in custom content. The
+`background` closure draws behind the overall menu. Inset and image
+cropping remain the caller's responsibility.
+
 ## Dependency Direction
 
 Allowed:

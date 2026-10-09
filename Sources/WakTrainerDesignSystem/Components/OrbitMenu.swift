@@ -17,7 +17,7 @@ public struct OrbitMenuItem: Identifiable, Hashable {
 /// 0° points right, 90° points up, and 180° points left.
 public struct OrbitMenuConfiguration {
     public var startAngle: Angle
-    /// The direction and available arc for equally distributed satellites.
+    /// The direction and available arc for equally distributed satellites.\n    /// Equal spacing is automatic; callers do not need to configure a per-item angle.
     /// Defaults to the upper semicircle, from 180° clockwise to 0°.
     public var sweepAngle: Angle
     public var orbitRadius: CGFloat
@@ -67,6 +67,22 @@ public enum OrbitMenuLayout {
         }
     }
 
+    /// Minimum orbit radius needed to keep adjacent circular satellites apart.
+    /// Returns zero for zero or one satellites; callers can clamp to available space.
+    public static func minimumRadius(
+        count: Int,
+        satelliteDiameter: CGFloat,
+        sweepAngle: Angle,
+        spacing: CGFloat = 8
+    ) -> CGFloat {
+        guard count > 1 else { return 0 }
+        let delta = abs(sweepAngle.radians) / Double(count - 1)
+        guard delta > 0 else { return .infinity }
+        let chordFactor = 2 * sin(min(delta, .pi) / 2)
+        guard chordFactor > 0 else { return .infinity }
+        return max(0, satelliteDiameter + spacing) / chordFactor
+    }
+
     public static func offsets(
         count: Int,
         radius: CGFloat,
@@ -114,7 +130,8 @@ public struct OrbitMenu: View {
         GeometryReader { geometry in
             let radius = min(
                 configuration.orbitRadius,
-                max(0, (geometry.size.width - configuration.satelliteDiameter - 12) / 2)
+                max(0, (geometry.size.width - configuration.satelliteDiameter - 12) / 2),
+                max(0, (geometry.size.height - configuration.satelliteDiameter - 12) / 2)
             )
             let offsets = OrbitMenuLayout.offsets(
                 count: current.children.count,
@@ -127,18 +144,21 @@ public struct OrbitMenu: View {
                 ForEach(current.children.indices, id: \.self) { index in
                     let item = current.children[index]
                     let offset = offsets[index]
-                    circle(
-                        title: item.title,
-                        diameter: configuration.satelliteDiameter,
-                        color: configuration.satelliteColor
-                    )
+                    Button {
+                        select(item, at: offset)
+                    } label: {
+                        circle(
+                            title: item.title,
+                            diameter: configuration.satelliteDiameter,
+                            color: configuration.satelliteColor
+                        )
+                    }
+                    .buttonStyle(.plain)
                     .offset(
                         absorbingID == item.id ? absorbingOffset :
                             returningID == item.id ? returningOffset : offset
                     )
                     .opacity(isTransitioning && absorbingID != item.id && returningID != item.id ? 0 : 1)
-                    .onTapGesture { select(item, at: offset) }
-                    .accessibilityAddTraits(.isButton)
                     .accessibilityLabel(Text(item.title))
                     .accessibilityHint(Text(item.children.isEmpty ? "Select item" : "Show subitems"))
                     .allowsHitTesting(!isTransitioning)
@@ -160,7 +180,7 @@ public struct OrbitMenu: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(height: configuration.orbitRadius + configuration.satelliteDiameter + configuration.centerDiameter / 2 + 22)
+        .frame(height: 2 * (configuration.orbitRadius + configuration.satelliteDiameter / 2 + 6))
     }
 
     private func circle(title: String, diameter: CGFloat, color: Color) -> some View {

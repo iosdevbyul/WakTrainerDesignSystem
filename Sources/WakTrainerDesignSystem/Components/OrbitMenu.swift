@@ -78,8 +78,10 @@ public enum OrbitMenuLayout {
         guard count > 1 else { return 0 }
         let delta = abs(sweepAngle.radians) / Double(count - 1)
         guard delta > 0 else { return .infinity }
-        let chordFactor = 2 * sin(min(delta, .pi) / 2)
-        guard chordFactor > 0 else { return .infinity }
+        // A full turn can place distinct satellites at the same coordinate.
+        // Calculate the actual shortest chord, not a clamped angle.
+        let chordFactor = 2 * abs(sin(delta / 2))
+        guard chordFactor > 0.000001 else { return .infinity }
         return max(0, satelliteDiameter + spacing) / chordFactor
     }
 

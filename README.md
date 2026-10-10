@@ -264,6 +264,36 @@ while `nodeStyle` controls its outer background and size. Use
 `background` closure draws behind the overall menu. Inset and image
 cropping remain the caller's responsibility.
 
+### Arbitrary button shapes and collision behavior
+
+Each node can now provide a type-erased SwiftUI `Shape` via its style.
+The same shape is used for the node background and its hit-test region:
+
+```swift
+nodeStyle: { item, isCenter in
+    OrbitMenuNodeStyle(
+        diameter: isCenter ? 110 : 72,
+        fill: .indigo,
+        shape: OrbitMenuAnyShape(Capsule())
+    )
+}
+```
+
+Custom `Shape` implementations such as hexagons, stars, and asymmetric
+paths are supported. A node's shape takes precedence over `cornerRadius`.
+For accessibility, its diameter is still at least 44 points.
+
+Collision prevention is intentionally conservative: geometry uses the largest
+satellite's bounding circle for angular spacing, and keeps the whole satellite
+clear of the center node. Mixed diameters can therefore leave extra gaps.
+If a host container is too narrow to satisfy the required center clearance,
+the component shows an insufficient-space notice instead of overlapping nodes.
+Wider containers or smaller nodes are required in that situation.
+
+`OrbitMenuCollision.isCollisionFree` provides pairwise bounding-circle
+validation with individual diameters and center clearance for tests and
+integrators. Shape-specific polygon packing is not attempted.
+
 ## Dependency Direction
 
 Allowed:

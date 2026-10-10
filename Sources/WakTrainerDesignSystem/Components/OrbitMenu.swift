@@ -199,7 +199,9 @@ public struct OrbitMenu: View {
                 (geometry.size.width - largestSatellite - 12) / 2,
                 (geometry.size.height - largestSatellite - 12) / 2
             ))
-            let radius = min(configuration.orbitRadius, maximumRadius)
+            let centerDiameter = nodeStyle(current, true).diameter ?? configuration.centerDiameter
+            let centerClearance = (centerDiameter + largestSatellite) / 2 + configuration.satelliteSpacing
+            let radius = min(max(configuration.orbitRadius, centerClearance), maximumRadius)
             let capacity = OrbitMenuOverflowLayout.pageCapacity(
                 radius: radius,
                 satelliteDiameter: largestSatellite,
@@ -210,7 +212,7 @@ public struct OrbitMenu: View {
                 itemCount: current.children.count,
                 baseRadius: min(
                     radius,
-                    configuration.centerDiameter / 2 + configuration.satelliteDiameter / 2 + configuration.satelliteSpacing
+                    centerClearance
                 ),
                 satelliteDiameter: largestSatellite,
                 spacing: configuration.satelliteSpacing,
@@ -383,13 +385,19 @@ public struct OrbitMenu: View {
         }
         .frame(width: diameter, height: diameter)
         .background {
-            if let radius = style.cornerRadius {
+            if let shape = style.shape {
+                shape.fill(fill)
+            } else if let radius = style.cornerRadius {
                 RoundedRectangle(cornerRadius: radius).fill(fill)
+            } else if let shape = style.shape {
+                shape.fill(fill)
             } else {
                 Circle().fill(fill)
             }
         }
-        .contentShape(Rectangle())
+        .contentShape(style.shape ?? OrbitMenuAnyShape(
+            RoundedRectangle(cornerRadius: style.cornerRadius ?? diameter / 2)
+        ))
     }
 
     private func select(_ item: OrbitMenuItem, at offset: CGSize) {
@@ -426,6 +434,7 @@ public struct OrbitMenu: View {
         let previousPage = pageHistory.popLast() ?? 0
         page = 0
         let siblings = current.children
+        let centerDiameter = nodeStyle(current, true).diameter ?? configuration.centerDiameter
         let largestSatellite = max(
             configuration.satelliteDiameter,
             siblings.map { nodeStyle($0, false).diameter ?? configuration.satelliteDiameter }.max() ?? 0
@@ -438,7 +447,7 @@ public struct OrbitMenu: View {
             itemCount: siblings.count,
             baseRadius: min(
                 radius,
-                configuration.centerDiameter / 2 + configuration.satelliteDiameter / 2 + configuration.satelliteSpacing
+                (centerDiameter + largestSatellite) / 2 + configuration.satelliteSpacing
             ),
             satelliteDiameter: largestSatellite,
             spacing: configuration.satelliteSpacing,

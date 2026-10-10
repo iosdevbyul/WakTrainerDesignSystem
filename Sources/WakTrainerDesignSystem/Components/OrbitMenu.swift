@@ -202,12 +202,13 @@ public struct OrbitMenu: View {
             let centerDiameter = nodeStyle(current, true).diameter ?? configuration.centerDiameter
             let centerClearance = (centerDiameter + largestSatellite) / 2 + configuration.satelliteSpacing
             let radius = min(max(configuration.orbitRadius, centerClearance), maximumRadius)
-            let capacity = OrbitMenuOverflowLayout.pageCapacity(
+            let canFitOrbit = maximumRadius >= centerClearance
+            let capacity = canFitOrbit ? OrbitMenuOverflowLayout.pageCapacity(
                 radius: radius,
                 satelliteDiameter: largestSatellite,
                 sweepAngle: configuration.sweepAngle,
                 spacing: configuration.satelliteSpacing
-            )
+            ) : 0
             let multiplePositions = OrbitMenuOverflowLayout.orbitPositions(
                 itemCount: current.children.count,
                 baseRadius: min(
@@ -220,17 +221,18 @@ public struct OrbitMenu: View {
                 sweepAngle: configuration.sweepAngle,
                 maxRadius: maximumRadius
             )
-            let pageSize = configuration.overflowBehavior == .pagination
-                ? capacity : max(1, multiplePositions.count)
-            let totalPages = OrbitMenuOverflowLayout.pageCount(
+            let pageSize = canFitOrbit
+                ? (configuration.overflowBehavior == .pagination
+                    ? capacity : max(1, multiplePositions.count)) : 0
+            let totalPages = canFitOrbit ? OrbitMenuOverflowLayout.pageCount(
                 itemCount: current.children.count, capacity: pageSize
-            )
+            ) : 0
             let displayedPage = min(page, max(0, totalPages - 1))
-            let visibleRange = OrbitMenuOverflowLayout.visibleRange(
+            let visibleRange = canFitOrbit ? OrbitMenuOverflowLayout.visibleRange(
                 page: displayedPage,
                 capacity: pageSize,
                 itemCount: current.children.count
-            )
+            ) : 0..<0
             let offsets: [CGSize] = configuration.overflowBehavior == .pagination
                 ? OrbitMenuLayout.offsets(
                     count: visibleRange.count,
@@ -240,6 +242,13 @@ public struct OrbitMenu: View {
                 ) : Array(multiplePositions.prefix(visibleRange.count))
 
             ZStack {
+                if !canFitOrbit && !current.children.isEmpty {
+                    Text("More space needed for orbit")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .offset(y: -(centerDiameter + largestSatellite) / 2)
+                        .accessibilityLabel("Orbit menu needs a wider container")
+                }
                 ForEach(Array(visibleRange), id: \.self) { index in
                     let item = current.children[index]
                     let offset = offsets[index - visibleRange.lowerBound]
@@ -389,8 +398,6 @@ public struct OrbitMenu: View {
                 shape.fill(fill)
             } else if let radius = style.cornerRadius {
                 RoundedRectangle(cornerRadius: radius).fill(fill)
-            } else if let shape = style.shape {
-                shape.fill(fill)
             } else {
                 Circle().fill(fill)
             }

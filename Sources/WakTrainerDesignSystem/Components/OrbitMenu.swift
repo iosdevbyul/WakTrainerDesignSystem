@@ -486,6 +486,10 @@ public struct OrbitMenu: View {
                 startAngle: configuration.startAngle,
                 sweepAngle: configuration.sweepAngle
             ) : Array(parentPositions.prefix(range.count))
+        guard newOffsets.indices.contains(index - range.lowerBound) else {
+            isTransitioning = false
+            return
+        }
         let destination = newOffsets[index - range.lowerBound]
         returningID = departing.id
         returningOffset = .zero

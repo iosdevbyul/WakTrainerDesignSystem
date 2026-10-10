@@ -10,18 +10,22 @@ public struct OrbitMenuNodeStyle {
     /// Set to a value such as 12 for a rounded rectangle.
     /// Leave nil for the original circular shape.
     public var cornerRadius: CGFloat?
+    /// Any SwiftUI shape used for both rendering and hit testing.
+    public var shape: OrbitMenuAnyShape?
 
     public init(
         diameter: CGFloat? = nil,
         fill: Color? = nil,
         foreground: Color? = nil,
         font: Font? = nil,
-        cornerRadius: CGFloat? = nil
+        cornerRadius: CGFloat? = nil,
+        shape: OrbitMenuAnyShape? = nil
     ) {
         self.diameter = diameter.map { max(44, $0) }
         self.fill = fill
         self.foreground = foreground
         self.font = font
         self.cornerRadius = cornerRadius.map { max(0, $0) }
+        self.shape = shape
     }
 }

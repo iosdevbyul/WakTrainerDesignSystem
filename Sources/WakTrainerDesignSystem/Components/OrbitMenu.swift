@@ -28,6 +28,8 @@ public struct OrbitMenuConfiguration {
     public var orbitRadius: CGFloat
     public var centerDiameter: CGFloat
     public var satelliteDiameter: CGFloat
+    /// Fade the selected satellite as it moves toward the center. Enabled by default.
+    public var absorptionFadeEnabled: Bool
     public var animationDuration: Double
     public var centerColor: Color
     public var satelliteColor: Color
@@ -44,6 +46,7 @@ public struct OrbitMenuConfiguration {
         centerDiameter: CGFloat = 112,
         satelliteDiameter: CGFloat = 66,
         animationDuration: Double = 0.35,
+        absorptionFadeEnabled: Bool = true,
         centerColor: Color = .accentColor,
         satelliteColor: Color = .secondary,
         foregroundColor: Color = .white
@@ -58,6 +61,7 @@ public struct OrbitMenuConfiguration {
         self.centerDiameter = max(44, centerDiameter)
         self.satelliteDiameter = max(44, satelliteDiameter)
         self.animationDuration = max(0, animationDuration)
+        self.absorptionFadeEnabled = absorptionFadeEnabled
         self.centerColor = centerColor
         self.satelliteColor = satelliteColor
         self.foregroundColor = foregroundColor
@@ -134,6 +138,7 @@ public struct OrbitMenu: View {
     @State private var feedbackTick = 0
     @State private var absorbingID: String?
     @State private var absorbingOffset: CGSize = .zero
+    @State private var absorbingOpacity: Double = 1
     @State private var returningID: String?
     @State private var returningOffset: CGSize = .zero
     @State private var isTransitioning = false
@@ -263,7 +268,11 @@ public struct OrbitMenu: View {
                             returningID == item.id ? returningOffset :
                             rotated(offset, by: dialOffset + (reduceMotion ? 0 : OrbitMenuDialInteraction.rotation(for: dragTranslation)))
                     )
-                    .opacity(isTransitioning && absorbingID != item.id && returningID != item.id ? 0 : 1)
+                    .opacity(
+                        isTransitioning && absorbingID != item.id && returningID != item.id
+                            ? 0
+                            : (absorbingID == item.id ? absorbingOpacity : 1)
+                    )
                     .accessibilityLabel(Text(item.title))
                     .accessibilityHint(Text(item.children.isEmpty ? "Select item" : "Show subitems"))
                     .disabled(isTransitioning)
@@ -330,6 +339,7 @@ public struct OrbitMenu: View {
             transitionTask?.cancel()
             transitionTask = nil
             absorbingID = nil
+            absorbingOpacity = 1
             returningID = nil
             dialOffset = 0
             isTransitioning = false
@@ -413,8 +423,12 @@ public struct OrbitMenu: View {
         isTransitioning = true
         absorbingID = item.id
         absorbingOffset = offset
+        absorbingOpacity = 1
         withAnimation(.easeInOut(duration: duration)) {
             absorbingOffset = .zero
+            if configuration.absorptionFadeEnabled && !reduceMotion {
+                absorbingOpacity = 0
+            }
         }
         transitionTask?.cancel()
         transitionTask = Task { @MainActor in
@@ -428,6 +442,7 @@ public struct OrbitMenu: View {
             path.append(item)
             page = 0
             absorbingID = nil
+            absorbingOpacity = 1
             isTransitioning = false
             transitionTask = nil
             if isLeaf { onSelect(item) }

@@ -16,7 +16,7 @@ final class OrbitMenuStressValidationTests: XCTestCase {
     }
 
     func testNarrowWidthsNeverProduceZeroPageCapacity() {
-        for radius: CGFloat in [0, 20, 40, 60, 90, 140] {
+        for radius in [CGFloat(0), 20, 40, 60, 90, 140] {
             let capacity = OrbitMenuOverflowLayout.pageCapacity(
                 radius: radius,
                 satelliteDiameter: 52,

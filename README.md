@@ -316,6 +316,31 @@ WakTrainerDesignSystem
 
 The design system must not depend on WakTrainer feature, domain, service, or networking packages.
 
+## OrbitMenu visual and stress validation
+
+Open `Sources/WakTrainerDesignSystem/Components/OrbitMenuValidationView.swift`
+in Xcode and launch the **Orbit stress lab** Preview. The view is deliberately
+packaged with the SwiftUI library, so no separate iOS demo application or
+WakTrainerApp change is required.
+
+Use its controls to vary the satellite count from 1 to 100, switch between
+pagination and multiple orbits, change the angular arc, mix button sizes, and
+toggle a custom capsule shape. Tap a satellite, tap the center to go back,
+swipe repeatedly between pages, and use **Reset navigation** between scenarios.
+
+Also inspect the **Small width**, **Large accessibility text**, and
+**Reduce motion** previews. On a physical device (or a separately configured
+host application), verify VoiceOver navigation and the speed/feel of the
+absorb, separate and dial animations. Preview/test success does not establish
+real-device visual quality.
+
+Suggested manual checks:
+1. Select a parent satellite and return to the same page with the center.
+2. Repeatedly swipe and tap paging buttons with 100 satellites.
+3. Increase system Dynamic Type, enable VoiceOver and Reduce Motion.
+4. Resize or rotate the host and look for clipped/overlapping hit areas.
+5. Test insufficient viewport space with large satellite sizes.
+
 ## Development
 
 Run tests with Xcode using any iPhone Simulator installed on your machine:

@@ -119,7 +119,7 @@ public struct OrbitMenuValidationView: View {
         .environment(\.dynamicTypeSize, .accessibility3)
 }
 
-#Preview("Reduce motion") {
+#Preview("Animations disabled") {
     OrbitMenuValidationView()
-        .environment(\.accessibilityReduceMotion, true)
+        .transaction { $0.disablesAnimations = true }
 }

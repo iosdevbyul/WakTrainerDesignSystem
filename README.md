@@ -361,3 +361,21 @@ GitHub Actions pins the macOS runner and discovers an available iPhone Simulator
 ## Evolution
 
 New components should be promoted into the design system only when they represent a stable visual primitive or are reused across feature screens. Feature-specific screens such as Home, Workout Report, Workout History, and Running Session remain in their owning feature modules.
+
+### Satellite absorption fade
+
+Selected satellites now fade smoothly from opaque to transparent as they move
+into the center. This is enabled by default and follows the existing
+`animationDuration`. Disable it to retain the earlier movement-only effect:
+
+```swift
+OrbitMenu(
+    root: menu,
+    configuration: .init(absorptionFadeEnabled: false)
+) { selected in
+    print(selected.id)
+}
+```
+
+The fade is omitted when Reduce Motion is enabled. Returning satellites keep
+the existing separation animation.

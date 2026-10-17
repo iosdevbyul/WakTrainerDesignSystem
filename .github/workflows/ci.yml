@@ -60,3 +60,20 @@ jobs:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             test
+
+  macos-build-and-test:
+    name: macOS Build and Test
+    runs-on: macos-15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Build and test on macOS
+        run: |
+          xcodebuild \
+            -scheme WakTrainerDesignSystem \
+            -destination 'platform=macOS' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            test
